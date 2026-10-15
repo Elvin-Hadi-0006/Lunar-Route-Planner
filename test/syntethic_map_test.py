@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 import main
 import utils
 
-map_path = Path(__file__).resolve().parent / "test_track.jpg"
+map_path = Path(__file__).resolve().parent / "test_track.png"
 syntethic_map = Image.open(map_path)
 syntethic_map = ImageOps.grayscale(syntethic_map)
 elevation = np.array(syntethic_map)
@@ -21,43 +21,60 @@ start = np.array([35, 15])
 end = np.array([105, 105])
 x_lin = np.arange(0, elevation.shape[0]) * resolution
 y_lin = np.arange(0, elevation.shape[1]) * resolution
-#x,y = np.meshgrid(x_lin, y_lin)
 
-x_grad, y_grad = np.gradient(elevation, x_lin, y_lin)
-x_grad_interp = RegularGridInterpolator((x_lin,y_lin), x_grad, bounds_error=False, fill_value=np.nan) 
-y_grad_interp = RegularGridInterpolator((x_lin,y_lin), y_grad, bounds_error=False, fill_value=np.nan) 
+coarse_weights = main.CostWeights(
+    base_cost=1,
+    uphill_cost=2,
+    side_gradient_cost=1,
+    downhill_cost=0,
+    relief_cost=1,
+    roughness_cost=1
+)
+coarse_constraints = main.make_constraints_vector(
+    uphill_max=1,
+    side_gradient_max=1,
+    downhill_max=1,
+    relief_max=10,
+    roughness_max=100
+)
+fine_weights = main.CostWeights(
+    base_cost=1,
+    uphill_cost=2,
+    side_gradient_cost=1,
+    downhill_cost=0,
+    relief_cost=0,
+    roughness_cost=0
+)
+fine_constraints = main.make_constraints_vector(
+    uphill_max=1,
+    side_gradient_max=1,
+    downhill_max=1,
+    relief_max=np.inf,
+    roughness_max=np.inf
+)
 
-uphill_cost = 2
-sideways_cost = 1
-downhill_cost = 0
-base_cost = 1
+solver = main.RoutePlanner(elevation, x_lin, y_lin)
+result = solver.find_route(
+    start=start, 
+    goal=end,
+    coarse_factor=5,
+    coarse_heuristics_weight=1,
+    coarse_weights=coarse_weights,
+    coarse_constraints=coarse_constraints,
+    optimizer_bounds_size=10,
+    fine_weights=fine_weights,
+    fine_constraints=fine_constraints,
+    optimize_route=True
+    )
 
-uphill_constraint = 1
-sideways_constraint = 1
-downhill_constraint = 1
+if result[2]:
+    waypoints = result[0]
+    cost = result[1]
 
-def eval_function(point:np.ndarray, dir:np.ndarray):
-    forward_grad, sideways_grad = utils.directional_gradient(point, dir, x_grad_interp, y_grad_interp)
-    
-    cost = (np.where(forward_grad>=1, uphill_cost, downhill_cost) * forward_grad
-            + sideways_cost * np.abs(sideways_grad) 
-            + base_cost)
-
-    constrained_vals = np.stack([forward_grad, sideways_grad, -forward_grad], axis=-1)
-
-    return cost, constrained_vals
-
-constraints = np.array([uphill_constraint, sideways_constraint, downhill_constraint])
-
-result = main.a_star_search(start, end, x_lin, y_lin, eval_function, constraints, 2)
-
-if result is not False:
-    waypoints, cost = result
+    print(cost)
 
     plt.imshow(elevation, extent=(x_lin[0], x_lin[-1], y_lin[-1], y_lin[0]))
     plt.plot(waypoints[:,1], waypoints[:,0])
     plt.plot(start[1], start[0], 'ro')
     plt.plot(end[1], end[0], 'ro')
     plt.show()
-else:
-    print("A* Failed")
