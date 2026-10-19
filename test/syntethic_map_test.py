@@ -22,49 +22,33 @@ end = np.array([105, 105])
 x_lin = np.arange(0, elevation.shape[0]) * resolution
 y_lin = np.arange(0, elevation.shape[1]) * resolution
 
-coarse_weights = main.CostWeights(
+weights = main.CostWeights(
     base_cost=1,
     uphill_cost=2,
     side_gradient_cost=1,
     downhill_cost=0,
     relief_cost=1,
-    roughness_cost=1
+    roughness_cost=1,
+    window_size=3
 )
-coarse_constraints = main.make_constraints_vector(
+constraints = main.make_constraints_vector(
     uphill_max=1,
     side_gradient_max=1,
     downhill_max=1,
     relief_max=10,
     roughness_max=100
 )
-fine_weights = main.CostWeights(
-    base_cost=1,
-    uphill_cost=2,
-    side_gradient_cost=1,
-    downhill_cost=0,
-    relief_cost=0,
-    roughness_cost=0
-)
-fine_constraints = main.make_constraints_vector(
-    uphill_max=1,
-    side_gradient_max=1,
-    downhill_max=1,
-    relief_max=np.inf,
-    roughness_max=np.inf
-)
 
 solver = main.RoutePlanner(elevation, x_lin, y_lin)
 result = solver.find_route(
     start=start, 
     goal=end,
-    coarse_factor=5,
-    coarse_heuristics_weight=1,
-    coarse_weights=coarse_weights,
-    coarse_constraints=coarse_constraints,
-    optimizer_bounds_size=10,
-    fine_weights=fine_weights,
-    fine_constraints=fine_constraints,
-    optimize_route=True
+    grid_factor=1,
+    heuristics_weight=1,
+    cost_weights=weights,
+    constraints=constraints,
+    line_of_sight_optimization=True,
+    minimizer_optimization=False
     )
 
 if result[2]:

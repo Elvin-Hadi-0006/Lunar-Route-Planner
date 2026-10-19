@@ -9,21 +9,47 @@ import pvl
 import heapq
 from matplotlib import pyplot as plt
 
-def evaluate_segment(segment_start, segment_end, resolution, func_eval):
+def evaluate_segment(segment_start, segment_end, resolution, eval_func):
     # Create points inside the segment for calculations
     segment_length = np.sqrt(np.sum((segment_end - segment_start)**2)) 
     points_amount = int(segment_length/resolution) + 1
+    points_amount = np.maximum(points_amount, 2)
     points = np.stack(  [np.linspace(segment_start[0], segment_end[0], points_amount),
                         np.linspace(segment_start[1], segment_end[1], points_amount)],
                         axis=-1)
     dir = np.repeat(np.atleast_2d((segment_end - segment_start) / segment_length), points_amount, 0)
 
     # Evaluates costs and constrained values
-    point_cost, point_constrained_vals = func_eval(points, dir)
-    segment_cost = integrate.trapezoid(y=point_cost, dx=segment_length/points_amount)
+    point_cost, point_constrained_vals = eval_func(points, dir)
+    segment_cost = integrate.trapezoid(y=point_cost, dx=segment_length/(points_amount-1))
     segment_constrained_vals = np.max(point_constrained_vals, axis=0)
 
     return segment_cost, segment_constrained_vals
+
+def evaluate_route(waypoints, eval_resolution, eval_func, n_constraints):
+    total_cost = 0
+    constrained_vals = np.zeros(n_constraints)
+
+    # Add new points inbetween current waypoints
+    dist_between_waypoints = np.sqrt(np.sum( (waypoints[1:,:]-waypoints[:-1,:])**2, axis=1 ))
+    steps_per_gap = np.astype(dist_between_waypoints/eval_resolution, int) + 1
+
+    new_index = np.arange(0, np.sum(steps_per_gap))
+    old_index = np.append(0, np.cumsum(steps_per_gap))
+
+    new_waypoints = np.vstack(
+        (np.interp(new_index, old_index, waypoints[:,0]),
+         np.interp(new_index, old_index, waypoints[:,0]))
+    ).T
+
+    dist_between_new_waypoints = np.append(0, np.sqrt(np.sum( (new_waypoints[1:,:]-new_waypoints[:-1,:])**2, axis=1 )))
+    
+    # Evaluates costs and constrained values
+    point_cost, point_constrained_vals = eval_func(new_waypoints, dir)
+    total_cost = integrate.trapezoid(y=point_cost, x=dist_between_new_waypoints)
+    constrained_vals = np.max(point_constrained_vals, axis=0)
+
+    return total_cost, constrained_vals 
 
 # TODO : Fix minimization step
 class MinimizeRouteCost:
@@ -31,18 +57,18 @@ class MinimizeRouteCost:
                  start:np.ndarray, 
                  end:np.ndarray, 
                  initial_waypoints:np.ndarray, 
-                 func_eval, 
+                 eval_func, 
                  constraints:np.ndarray, 
                  resolution, 
                  bounds_size 
                  ):
         """
-        func_eval(points, dir) : callable, returns (cost, constraints). 
+        eval_func(points, dir) : callable, returns (cost, constraints). 
         """
         self.start = start
         self.end = end
         self.initial_waypoints = initial_waypoints
-        self.func_eval = func_eval
+        self.eval_func = eval_func
         self.constraints = constraints
         self.resolution = resolution
         self.bounds_size = bounds_size
@@ -56,18 +82,7 @@ class MinimizeRouteCost:
             self.last_waypoints_flat = waypoints_flat
             waypoints = self.unflattened_waypoints(waypoints_flat)
 
-            total_cost = 0
-            constrained_vals = np.zeros(self.constraints.shape)
-
-            # Evaluate each segment of the path
-            for i in range(self.n-1):
-                segment_start = waypoints[i, :]
-                segment_end = waypoints[i+1, :]
-                segment_cost, segment_constrained_vals = evaluate_segment(segment_start, segment_end, self.resolution, self.func_eval)
-                total_cost +=  segment_cost
-                constrained_vals = np.maximum(segment_constrained_vals,constrained_vals)
-    
-            self.last_eval = total_cost, constrained_vals 
+            self.last_eval = evaluate_route(waypoints, self.resolution, self.eval_func)
 
         return self.last_eval
 
@@ -114,8 +129,49 @@ class MinimizeRouteCost:
         )
         return result
 
+def line_of_sight_optimization(waypoints:np.ndarray, waypoints_g_score, eval_func, eval_resolution, constraints):
+    optimized_route = np.array([waypoints[0,:]])
+    optimized_cost = 0
+    current_index = 0
+    next_index = 2
+    n = waypoints.shape[0]
+    prev_segment_cost = waypoints_g_score[1]
+    
+    while True:
 
-def a_star_search(start, goal, x, y, eval_func, eval_resolution, constraints, heuristic_weight):
+        # If index is out of bounds, return the optimized result
+        if(next_index == n):
+            optimized_route = np.append(optimized_route, np.array([waypoints[next_index-1,:]]), axis=0)
+            optimized_cost += prev_segment_cost
+            return optimized_route, optimized_cost
+
+        segment_cost, segment_constrained_vals = evaluate_segment(
+            segment_start=waypoints[current_index,:],
+            segment_end=waypoints[next_index,:],
+            resolution=eval_resolution,
+            eval_func=eval_func
+        )
+
+        # print(f"{current_index}, {next_index}, \t {waypoints_g_score[next_index]-waypoints_g_score[current_index]}, \t {prev_segment_cost},\t {segment_cost}")
+
+        if (np.any(segment_constrained_vals > constraints) or
+            (segment_cost > waypoints_g_score[next_index]-waypoints_g_score[current_index]) 
+        ):
+            optimized_route = np.append(optimized_route, np.array([waypoints[next_index-1,:]]), axis=0)
+            current_index = next_index-1
+            optimized_cost += prev_segment_cost
+            prev_segment_cost = waypoints_g_score[current_index+1]-waypoints_g_score[current_index]
+        else:
+            prev_segment_cost = segment_cost
+
+        next_index += 1       
+
+def a_star_search(start, goal, x, y, eval_func, eval_resolution, constraints, heuristic_weight, apply_line_of_sight_optimization):
+    """
+    A star search with line of sight optimization
+    Returns (route, cost, True), if successfull
+    Returns (closed_set, None, True) if failed to reach goal 
+    """
     start_i = utils.get_index(start[0], x)
     start_j = utils.get_index(start[1], y)
     goal_i = utils.get_index(goal[0], x)
@@ -130,7 +186,6 @@ def a_star_search(start, goal, x, y, eval_func, eval_resolution, constraints, he
     g_score[start_i, start_j] = 0
     came_from={(start_i, start_j):None}
 
-
     while open_set:
         _, current_i, current_j = heapq.heappop(open_set)
 
@@ -139,13 +194,26 @@ def a_star_search(start, goal, x, y, eval_func, eval_resolution, constraints, he
 
         # If goal has been reached, reconstruct path and return result
         if current_i == goal_i and current_j == goal_j:
-            route = np.array([[current_x, current_y]])
+            waypoints = np.array([[current_x, current_y]])
             prev_node = came_from[(current_i, current_j)]
-            while prev_node is not None:
-                route = np.append(np.array([[x[prev_node[0]], y[prev_node[1]]]]), route, axis=0)
-                prev_node = came_from[prev_node]
+            
+            if apply_line_of_sight_optimization:
+                waypoints_g_score = np.array(g_score[current_i, current_j])
+                while prev_node is not None:
+                    waypoints = np.append(np.array([[x[prev_node[0]], y[prev_node[1]]]]), waypoints, axis=0)
+                    waypoints_g_score = np.append(g_score[prev_node[0], prev_node[1]], waypoints_g_score)
+                    prev_node = came_from[prev_node] 
 
-            return route, g_score[goal_i, goal_j], True
+                waypoints, cost = line_of_sight_optimization(waypoints, waypoints_g_score, eval_func, eval_resolution, constraints)
+
+            else:
+                cost = g_score[current_i, current_j]
+                while prev_node is not None:
+                    waypoints = np.append(np.array([[x[prev_node[0]], y[prev_node[1]]]]), waypoints, axis=0)
+                    prev_node = came_from[prev_node]
+            
+            return waypoints, cost, True
+
 
         neighbour_i_list = np.array([-1, 0, 1, -1, 1, -1, 0, 1]) + current_i
         neighbour_j_list = np.array([-1, -1, -1, 0, 0, 1, 1, 1]) + current_j
@@ -168,7 +236,7 @@ def a_star_search(start, goal, x, y, eval_func, eval_resolution, constraints, he
                     segment_start=np.array([current_x, current_y]),
                     segment_end=np.array([neighbour_x, neighbour_y]),
                     resolution=eval_resolution,
-                    func_eval=eval_func
+                    eval_func=eval_func
                 )
 
                 # Check there is a valid route to the neighbour 
@@ -188,16 +256,17 @@ def a_star_search(start, goal, x, y, eval_func, eval_resolution, constraints, he
                             heapq.heappush(open_set, (neighbour_f_score, neighbour_i, neighbour_j))
                             closed_set.append((neighbour_i, neighbour_j))                                            
 
-    return np.array([]), np.array([]), False
+    return closed_set, None, False
 
 class CostWeights:
-    def __init__(self, base_cost, uphill_cost, side_gradient_cost, downhill_cost, relief_cost, roughness_cost):
+    def __init__(self, base_cost, uphill_cost, side_gradient_cost, downhill_cost, relief_cost, roughness_cost, window_size):
         self.base_cost = base_cost
         self.uphill_cost = uphill_cost
         self.side_gradient_cost = side_gradient_cost
         self.downhill_cost = downhill_cost
         self.relief_cost = relief_cost
         self.roughness_cost = roughness_cost
+        self.window_size = window_size
 
 def make_constraints_vector(uphill_max, side_gradient_max, downhill_max, relief_max, roughness_max):
     return np.array([uphill_max,
@@ -240,96 +309,74 @@ class RoutePlanner:
     def find_route(self,
                    start:np.ndarray, 
                    goal:np.ndarray, 
-                   coarse_factor:int,
-                   coarse_heuristics_weight,
-                   coarse_weights:CostWeights, 
-                   coarse_constraints:np.ndarray,
-                   optimizer_bounds_size,
-                   fine_weights:CostWeights,
-                   fine_constraints:np.ndarray,
-                   optimize_route:bool=True
+                   grid_factor:int,
+                   heuristics_weight,
+                   cost_weights:CostWeights, 
+                   constraints:np.ndarray,
+                   line_of_sight_optimization:bool=True,
+                   minimizer_optimization:bool=True,
+                   minimizer_bounds_size=None,
                 ):
 
         x_grad, y_grad = np.gradient(self.elevation, self.x, self.y)
         x_grad_interp = RegularGridInterpolator((self.x,self.y), x_grad, bounds_error=False, fill_value=np.nan) 
         y_grad_interp = RegularGridInterpolator((self.x,self.y), y_grad, bounds_error=False, fill_value=np.nan) 
 
-        coarse_relief = ndimage.maximum_filter(self.elevation, coarse_factor) - ndimage.minimum_filter(self.elevation, coarse_factor)
-        coase_relief_interp = RegularGridInterpolator((self.x,self.y), coarse_relief, bounds_error=False, fill_value=np.nan)
+        relief = ndimage.maximum_filter(self.elevation, cost_weights.window_size) - ndimage.minimum_filter(self.elevation, cost_weights.window_size)
+        relief_interp = RegularGridInterpolator((self.x,self.y), relief, bounds_error=False, fill_value=np.nan)
 
-        coarse_roughness = np.sqrt(
+        roughness = np.sqrt(
             ndimage.uniform_filter(
                 np.square(
-                    self.elevation - ndimage.uniform_filter(self.elevation, size=coarse_factor)
+                    self.elevation - ndimage.uniform_filter(self.elevation, size=cost_weights.window_size)
                 )
-            , size=coarse_factor)
+            , size=cost_weights.window_size)
         )
-        coarse_roughness_interp = RegularGridInterpolator((self.x,self.y), coarse_roughness, bounds_error=False, fill_value=np.nan)
+        roughness_interp = RegularGridInterpolator((self.x,self.y), roughness, bounds_error=False, fill_value=np.nan)
 
         print("Using A* search on coarse grid")
 
-        coarse_eval_func = lambda point, dir: self.eval_function(
+        eval_func = lambda point, dir: self.eval_function(
             point=point,
             dir=dir,
             x_grad_interp=x_grad_interp,
             y_grad_interp=y_grad_interp,
-            relief_interp=coase_relief_interp,
-            roughness_interp=coarse_roughness_interp,
-            weights=coarse_weights
+            relief_interp=relief_interp,
+            roughness_interp=roughness_interp,
+            weights=cost_weights
         )
 
-        coarse_route, coarse_cost, a_star_success = a_star_search(
+        a_star_route, a_star_cost, a_star_success = a_star_search(
             start=start,
             goal=goal,
-            x=self.x[int(coarse_factor/2)::coarse_factor],
-            y=self.y[int(coarse_factor/2)::coarse_factor],
-            eval_func=coarse_eval_func,
+            x=self.x[int(grid_factor/2)::grid_factor],
+            y=self.y[int(grid_factor/2)::grid_factor],
+            eval_func=eval_func,
             eval_resolution=self.resolution,
-            constraints=coarse_constraints,
-            heuristic_weight=coarse_heuristics_weight
+            constraints=constraints,
+            heuristic_weight=heuristics_weight,
+            apply_line_of_sight_optimization=line_of_sight_optimization
             )
 
         if not a_star_success:
             print("A* search failed to find goal")
-            return None, None, False, False
+            return a_star_route, None, False, False
 
         print("A* search completed")
 
-        fine_relief = ndimage.maximum_filter(self.elevation, 3) - ndimage.minimum_filter(self.elevation, 3)
-        fine_relief_interp = RegularGridInterpolator((self.x,self.y), fine_relief, bounds_error=False, fill_value=np.nan)
-
-        fine_roughness = np.sqrt(
-            ndimage.uniform_filter(
-                np.square(
-                    self.elevation - ndimage.uniform_filter(self.elevation, size=3)
-                )
-            , size=3)
-        )
-        fine_roughness_interp = RegularGridInterpolator((self.x,self.y), fine_roughness, bounds_error=False, fill_value=np.nan)
-
-        if not optimize_route:
-            return coarse_route, coarse_cost, True, False
+        if not minimizer_optimization:
+            return a_star_route, a_star_cost, True, False
 
         print("Optimizing coarse route")
-
-        fine_eval_func = lambda point, dir: self.eval_function(
-                    point=point,
-                    dir=dir,
-                    x_grad_interp=x_grad_interp,
-                    y_grad_interp=y_grad_interp,
-                    relief_interp=fine_relief_interp,
-                    roughness_interp=fine_roughness_interp,
-                    weights=fine_weights
-                )
         
         route_optimizer = MinimizeRouteCost(
             start=start,
             end=goal,
-            initial_waypoints=coarse_route,
-            func_eval=fine_eval_func,
-            constraints=fine_constraints,
+            initial_waypoints=a_star_route,
+            eval_func=eval_func,
+            constraints=constraints,
             resolution=self.resolution,
-            bounds_size=optimizer_bounds_size
+            bounds_size=minimizer_bounds_size
         )
 
         optimizer_result = route_optimizer.solve()
@@ -337,11 +384,12 @@ class RoutePlanner:
         if not optimizer_result.success:
             print("Minimizer failed to converge")
             print(optimizer_result.message)
-            return coarse_route, coarse_cost, True, False
+            return a_star_route, a_star_cost, True, False
 
         print("Optimization completed")
 
-        return (route_optimizer.unflattened_waypoints(optimizer_result.x),
+        return (
+            route_optimizer.unflattened_waypoints(optimizer_result.x),
             optimizer_result.fun,
             True,
             True
