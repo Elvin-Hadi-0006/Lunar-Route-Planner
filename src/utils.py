@@ -37,8 +37,11 @@ def directional_gradient(
     """
     returns gradient tangent and perpendicular to direction vector
     """
-    pos = np.atleast_2d(pos)
-    dir = np.atleast_2d(dir)
+    if pos.ndim==1:
+        pos = np.atleast_2d(pos).T
+
+    if dir.ndim==1:
+            dir = np.atleast_2d(dir).T
 
     normalDir = np.stack([-dir[:, 1], dir[:, 0]], axis=-1) # (N,2)
 

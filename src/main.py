@@ -39,14 +39,22 @@ def evaluate_route(waypoints, eval_resolution, eval_func, n_constraints):
 
     new_waypoints = np.vstack(
         (np.interp(new_index, old_index, waypoints[:,0]),
-         np.interp(new_index, old_index, waypoints[:,0]))
+         np.interp(new_index, old_index, waypoints[:,1]))
     ).T
 
-    dist_between_new_waypoints = np.append(0, np.sqrt(np.sum( (new_waypoints[1:,:]-new_waypoints[:-1,:])**2, axis=1 )))
-    
+    delta_new_waypoints = new_waypoints[1:,:] - new_waypoints[:-1,:]
+
+    dist_between_new_waypoints = np.sqrt(np.sum( delta_new_waypoints**2, axis=1 ))
+
+    dir = delta_new_waypoints / dist_between_new_waypoints[:,np.newaxis]
+    dir = np.append(dir, dir[-1:,:], axis=0)
+    cumulative_distance = np.append(0,np.cumsum(dist_between_new_waypoints))
+
+    #print(dist_between_new_waypoints, new_waypoints, new_index, old_index)
+
     # Evaluates costs and constrained values
     point_cost, point_constrained_vals = eval_func(new_waypoints, dir)
-    total_cost = integrate.trapezoid(y=point_cost, x=dist_between_new_waypoints)
+    total_cost = integrate.trapezoid(y=point_cost, x=cumulative_distance)
     constrained_vals = np.max(point_constrained_vals, axis=0)
 
     return total_cost, constrained_vals 
@@ -82,7 +90,7 @@ class MinimizeRouteCost:
             self.last_waypoints_flat = waypoints_flat
             waypoints = self.unflattened_waypoints(waypoints_flat)
 
-            self.last_eval = evaluate_route(waypoints, self.resolution, self.eval_func)
+            self.last_eval = evaluate_route(waypoints, self.resolution, self.eval_func, self.constraints.size)
 
         return self.last_eval
 
@@ -95,22 +103,22 @@ class MinimizeRouteCost:
     def unflattened_waypoints(self, waypoinys_flat):
         return waypoinys_flat.reshape(self.n, 2)
 
-    def solve(self, verbose=2)->optimize.OptimizeResult:
+    def solve(self, COBYQA_options:dict)->optimize.OptimizeResult:
         initial_waypoints_flat = self.initial_waypoints.flatten()
 
-        # Create Bounds object
-        lower_bound = initial_waypoints_flat
-        lower_bound[0] -= self.resolution/2
-        lower_bound[-1] -= self.resolution/2
-        lower_bound[1:-2] -= self.bounds_size
+        bounds_plus_minus = np.concat([
+                                np.ones(2)*self.resolution/2, 
+                                np.ones(initial_waypoints_flat.size-4)*self.bounds_size/2,
+                                np.ones(2)*self.resolution/2
+                                ])
 
-        upper_bound = initial_waypoints_flat
-        upper_bound[0] += self.resolution/2
-        upper_bound[-1] += self.resolution/2
-        upper_bound[1:-2] += self.bounds_size
+        # Create Bounds object
+        lower_bound = initial_waypoints_flat - bounds_plus_minus
+
+        upper_bound = initial_waypoints_flat + bounds_plus_minus
 
         bounds = optimize.Bounds(lower_bound, upper_bound)
-
+        
         # Create NonLinearConstraints object
         nonlinear_constraints = optimize.NonlinearConstraint(
             self.constrained_vals, 
@@ -121,11 +129,10 @@ class MinimizeRouteCost:
         result = optimize.minimize(
             fun=self.cost,
             x0=initial_waypoints_flat,
-            method='trust-constr',
+            method='COBYQA',
             bounds=bounds,
             constraints=nonlinear_constraints,
-            options={'verbose':2},
-            tol=self.resolution/10
+            options=COBYQA_options
         )
         return result
 
@@ -204,6 +211,7 @@ def a_star_search(start, goal, x, y, eval_func, eval_resolution, constraints, he
                     waypoints_g_score = np.append(g_score[prev_node[0], prev_node[1]], waypoints_g_score)
                     prev_node = came_from[prev_node] 
 
+                print("Applying line of sight optimization")
                 waypoints, cost = line_of_sight_optimization(waypoints, waypoints_g_score, eval_func, eval_resolution, constraints)
 
             else:
@@ -314,8 +322,11 @@ class RoutePlanner:
                    cost_weights:CostWeights, 
                    constraints:np.ndarray,
                    line_of_sight_optimization:bool=True,
-                   minimizer_optimization:bool=True,
+                   minimizer_optimization:bool=False,
                    minimizer_bounds_size=None,
+                   minimizer_max_iter = None,
+                   minimizer_constraint_tol = None, 
+                   minimizer_waypoints_tol =None,
                 ):
 
         x_grad, y_grad = np.gradient(self.elevation, self.x, self.y)
@@ -334,7 +345,7 @@ class RoutePlanner:
         )
         roughness_interp = RegularGridInterpolator((self.x,self.y), roughness, bounds_error=False, fill_value=np.nan)
 
-        print("Using A* search on coarse grid")
+        print("Using A* search")
 
         eval_func = lambda point, dir: self.eval_function(
             point=point,
@@ -362,12 +373,12 @@ class RoutePlanner:
             print("A* search failed to find goal")
             return a_star_route, None, False, False
 
-        print("A* search completed")
+        print(f"A* search completed with cost of {a_star_cost:.4g}")
 
         if not minimizer_optimization:
             return a_star_route, a_star_cost, True, False
 
-        print("Optimizing coarse route")
+        print("Applying minimizer optimization")
         
         route_optimizer = MinimizeRouteCost(
             start=start,
@@ -379,14 +390,17 @@ class RoutePlanner:
             bounds_size=minimizer_bounds_size
         )
 
-        optimizer_result = route_optimizer.solve()
+        optimizer_result = route_optimizer.solve({
+            'disp':False,
+            'maxiter':minimizer_max_iter,
+            'feasibility_tol':minimizer_constraint_tol,
+            'final_tr_radius':minimizer_waypoints_tol
+        })
 
         if not optimizer_result.success:
-            print("Minimizer failed to converge")
-            print(optimizer_result.message)
-            return a_star_route, a_star_cost, True, False
+            print(f"Minimizer failed to converge, reason: {optimizer_result.message}")
 
-        print("Optimization completed")
+        print(f"Optimization completed with cost of {optimizer_result.fun:.4g}")
 
         return (
             route_optimizer.unflattened_waypoints(optimizer_result.x),

@@ -43,19 +43,21 @@ solver = main.RoutePlanner(elevation, x_lin, y_lin)
 result = solver.find_route(
     start=start, 
     goal=end,
-    grid_factor=1,
+    grid_factor=3,
     heuristics_weight=1,
     cost_weights=weights,
     constraints=constraints,
     line_of_sight_optimization=True,
-    minimizer_optimization=False
+    minimizer_optimization=True,
+    minimizer_bounds_size=2,
+    minimizer_max_iter=100,
+    minimizer_constraint_tol=1e-4,
+    minimizer_waypoints_tol=1e-1
     )
 
 if result[2]:
     waypoints = result[0]
     cost = result[1]
-
-    print(cost)
 
     plt.imshow(elevation, extent=(x_lin[0], x_lin[-1], y_lin[-1], y_lin[0]))
     plt.plot(waypoints[:,1], waypoints[:,0])
