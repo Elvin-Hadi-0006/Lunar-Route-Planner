@@ -20,6 +20,9 @@ The SLDEM dataset containing lunar digital elevation models. The model is a comb
 
 The test functtions uses the sldem2015_512_00n_30n_315_360_float dataset. This dataset and and other SLDEM datasets are available at the [Lunar Orbital Data Explorer](https://ode.rsl.wustl.edu/moon/download) website.
 
+# Documentation
+HTML documentation can be found in docss/_build/html/index.html.
+
 # AI Statement
 Parts of this repository were developed with the assistance of AI tools such as Claude Sonnet 5.5.
 
