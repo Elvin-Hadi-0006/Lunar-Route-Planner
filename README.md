@@ -16,7 +16,7 @@ For test/
 * [pillow](https://pypi.org/project/pillow/)
 
 # Dataset
-Thttps://pillow.readthedocs.io/en/stable/h of lunar digital elevation models. The model is a combination of data from the Lunar Orbiter Laser Altimeter (LOLA) data and Selenological and Engineering Explorer (SELENE or Kaguya, operated by the Japan Aerospace eXploration Agency). For more information on the dataseet, visit [here](https://ode.rsl.wustl.edu/moon/pagehelp/Content/Missions_Instruments/Lunar%20Reconnaissance%20Orbiter%20(LRO)/LOLA/GDR/SLDEM.htm). 
+The SLDEM dataset containing lunar digital elevation models. The model is a combination of data from the Lunar Orbiter Laser Altimeter (LOLA) data and Selenological and Engineering Explorer (SELENE or Kaguya, operated by the Japan Aerospace eXploration Agency). For more information on the dataseet, visit [here](https://ode.rsl.wustl.edu/moon/pagehelp/Content/Missions_Instruments/Lunar%20Reconnaissance%20Orbiter%20(LRO)/LOLA/GDR/SLDEM.htm). 
 
 The test functtions uses the sldem2015_512_00n_30n_315_360_float dataset. This dataset and and other SLDEM datasets are available at the [Lunar Orbital Data Explorer](https://ode.rsl.wustl.edu/moon/download) website.
 
