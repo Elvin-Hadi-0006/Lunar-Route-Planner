@@ -2,7 +2,7 @@
 This repository is part of the final project for MMA3001 - Numerical methods and machine learning at Monash University. This project is meant to provide a way to find the best route between 2 points on the moon using SLDEM lunar elevation data.
 
 # How it works
-The RoutePlanner.find_route() method applies the A* search algorithm on the elevation map. Cost and barriers are determined by gradient, relief, and roughness. The a line-of-sight is then applied to the A* result to remove redundant waypoints. A multivariate minimizer optimization ( [scipy.optimize.minimize(method=COBYQA)](https://docs.scipy.org/doc/scipy/reference/optimize.minimize-cobyqa.html#optimize-minimize-cobyqa)) can also be applied to the result, though this greatly increases computation time.
+The RoutePlanner.find_route() method applies the A* search algorithm on the elevation map. Cost and barriers are determined by gradient, relief, and roughness. The a line-of-sight is then applied to the A* result to remove redundant waypoints. A multivariate minimizer optimization ([scipy.optimize.minimize(method=COBYQA)](https://docs.scipy.org/doc/scipy/reference/optimize.minimize-cobyqa.html#optimize-minimize-cobyqa)) can also be applied to the result, though this greatly increases computation time.
 
 # Required External Libraries
 For src/
