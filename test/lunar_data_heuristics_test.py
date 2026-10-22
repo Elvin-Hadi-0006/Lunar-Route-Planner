@@ -4,7 +4,6 @@ Tests the effect of heuristics_weight on the result
 """
 
 import numpy as np
-from PIL import Image, ImageOps
 from pathlib import Path
 from matplotlib import pyplot as plt
 import sys

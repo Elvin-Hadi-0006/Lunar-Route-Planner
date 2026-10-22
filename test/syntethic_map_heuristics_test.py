@@ -14,7 +14,6 @@ from time import time
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 import main
-import utils
 
 plt.rcParams["figure.constrained_layout.use"] = True
 

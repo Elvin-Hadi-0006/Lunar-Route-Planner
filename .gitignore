@@ -1,2 +1,3 @@
-data/*
+data/sldem2015*
 test/syntethic_map_inkscape.svg
+!.gitignore

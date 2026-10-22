@@ -4,7 +4,6 @@ Tests the effect of grid_factor, line of sight optimization, and minimizer optim
 """
 
 import numpy as np
-from scipy.interpolate import RegularGridInterpolator
 from PIL import Image, ImageOps
 from pathlib import Path
 from matplotlib import pyplot as plt
@@ -15,8 +14,6 @@ from time import time
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 import main
-import utils
-
 plt.rcParams["figure.constrained_layout.use"] = True
 
 map_path = Path(__file__).resolve().parent / "test_track.png"

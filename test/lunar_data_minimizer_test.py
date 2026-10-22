@@ -3,7 +3,6 @@ Test of the minimizer optimization on the lunar elevation data,
 """
 
 import numpy as np
-from PIL import Image, ImageOps
 from pathlib import Path
 from matplotlib import pyplot as plt
 import sys
