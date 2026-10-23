@@ -525,8 +525,8 @@ Instead, the results from the previous call is returned instead.</p>
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>elevation</strong> (<em>np.ndarray</em>) – 2D array containing the elevation values.</p></li>
-<li><p><strong>x</strong> (<em>np.ndarray</em>) – 1D array containing the x coordinates.</p></li>
-<li><p><strong>y</strong> (<em>np.ndarray</em>) – 1D array containing the y coordinates.</p></li>
+<li><p><strong>x</strong> (<em>np.ndarray</em>) – 1D array containing the x coordinates. This array should match with the columns in the inputed elevation array.</p></li>
+<li><p><strong>y</strong> (<em>np.ndarray</em>) – 1D array containing the y coordinates. This array should match with the rows in the inputed elevation array.</p></li>
 </ul>
 </dd>
 </dl>
@@ -534,7 +534,8 @@ Instead, the results from the previous call is returned instead.</p>
 <dt class="sig sig-object py" id="main.RoutePlanner.elevation">
 <span class="sig-name descname"><span class="pre">elevation</span></span><a class="headerlink" href="#main.RoutePlanner.elevation" title="Link to this definition">¶</a></dt>
 <dd><p>2D array containing the elevation values.
-Elevation is transposed, such that x is in the row-wise direction, and y is in the column-wise direction.</p>
+Elevation is transposed such that row axis (axis=0) is the x axis and the column axis (axis=1) is the y direction.
+This is done to simplify indexing.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>np.ndarray</p>

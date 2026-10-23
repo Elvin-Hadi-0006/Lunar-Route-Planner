@@ -326,8 +326,6 @@
     <span class="nb">dir</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">dir</span><span class="p">,</span> <span class="nb">dir</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">:,:],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
     <span class="n">cumulative_distance</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="n">np</span><span class="o">.</span><span class="n">cumsum</span><span class="p">(</span><span class="n">dist_between_new_waypoints</span><span class="p">))</span>
 
-    <span class="c1">#print(dist_between_new_waypoints, new_waypoints, new_index, old_index)</span>
-
     <span class="c1"># Evaluates costs and constrained values</span>
     <span class="n">point_cost</span><span class="p">,</span> <span class="n">point_constrained_vals</span> <span class="o">=</span> <span class="n">eval_func</span><span class="p">(</span><span class="n">new_waypoints</span><span class="p">,</span> <span class="nb">dir</span><span class="p">)</span>
     <span class="n">total_cost</span> <span class="o">=</span> <span class="n">integrate</span><span class="o">.</span><span class="n">trapezoid</span><span class="p">(</span><span class="n">y</span><span class="o">=</span><span class="n">point_cost</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="n">cumulative_distance</span><span class="p">)</span>
@@ -419,6 +417,7 @@
 
                 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"A* search completed with </span><span class="si">{</span><span class="n">waypoints_g_score</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.4g</span><span class="si">}</span><span class="s2"> cost and </span><span class="si">{</span><span class="n">waypoints</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2"> waypoints"</span><span class="p">)</span>
                 <span class="nb">print</span><span class="p">(</span><span class="s2">"Applying line of sight optimization"</span><span class="p">)</span>
+
                 <span class="n">waypoints</span><span class="p">,</span> <span class="n">cost</span> <span class="o">=</span> <span class="n">line_of_sight_optimization</span><span class="p">(</span><span class="n">waypoints</span><span class="p">,</span> <span class="n">waypoints_g_score</span><span class="p">,</span> <span class="n">eval_func</span><span class="p">,</span> <span class="n">eval_resolution</span><span class="p">,</span> <span class="n">constraints</span><span class="p">)</span>
 
             <span class="k">else</span><span class="p">:</span>
@@ -851,15 +850,16 @@
 <span class="sd">    elevation : np.ndarray</span>
 <span class="sd">        2D array containing the elevation values. </span>
 <span class="sd">    x : np.ndarray </span>
-<span class="sd">        1D array containing the x coordinates.</span>
+<span class="sd">        1D array containing the x coordinates. This array should match with the columns in the inputed elevation array.</span>
 <span class="sd">    y : np.ndarray</span>
-<span class="sd">        1D array containing the y coordinates.</span>
+<span class="sd">        1D array containing the y coordinates. This array should match with the rows in the inputed elevation array.</span>
 
 <span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
 <span class="sd">    elevation : np.ndarray</span>
 <span class="sd">        2D array containing the elevation values. </span>
-<span class="sd">        Elevation is transposed, such that x is in the row-wise direction, and y is in the column-wise direction. </span>
+<span class="sd">        Elevation is transposed such that row axis (axis=0) is the x axis and the column axis (axis=1) is the y direction.</span>
+<span class="sd">        This is done to simplify indexing.</span>
 <span class="sd">    x : np.ndarray </span>
 <span class="sd">        1D array containing the x coordinates. x must have constant spacing, and the spacing must be the same with y</span>
 <span class="sd">    y : np.ndarray</span>
@@ -871,7 +871,13 @@
                  <span class="n">elevation</span><span class="p">:</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
                  <span class="n">x</span><span class="p">:</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> 
                  <span class="n">y</span><span class="p">:</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">elevation</span> <span class="o">=</span> <span class="n">elevation</span><span class="o">.</span><span class="n">T</span>
+
+        <span class="c1"># Make sure that the shape of the elevation map matches the x and y arrays</span>
+        <span class="k">if</span> <span class="n">elevation</span><span class="o">.</span><span class="n">shape</span> <span class="o">==</span> <span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">size</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">elevation</span> <span class="o">=</span> <span class="n">elevation</span><span class="o">.</span><span class="n">T</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">"The shape of elevation does not match with x and y."</span><span class="p">)</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">x</span> <span class="o">=</span> <span class="n">x</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">y</span> <span class="o">=</span> <span class="n">y</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">resolution</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">-</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
