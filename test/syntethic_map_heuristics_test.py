@@ -45,6 +45,7 @@ constraints = main.make_constraints_vector(
     roughness_max=100
 )
 
+# Elevation is transposed because PIL has a different format
 solver = main.RoutePlanner(elevation.T, x_lin, y_lin)
 
 fig, ax = plt.subplots(2, 2)

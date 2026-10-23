@@ -98,8 +98,6 @@ def evaluate_route(waypoints:np.ndarray,
     dir = np.append(dir, dir[-1:,:], axis=0)
     cumulative_distance = np.append(0,np.cumsum(dist_between_new_waypoints))
 
-    #print(dist_between_new_waypoints, new_waypoints, new_index, old_index)
-
     # Evaluates costs and constrained values
     point_cost, point_constrained_vals = eval_func(new_waypoints, dir)
     total_cost = integrate.trapezoid(y=point_cost, x=cumulative_distance)
@@ -188,6 +186,7 @@ def a_star_search(start:np.ndarray,
 
                 print(f"A* search completed with {waypoints_g_score[-1]:.4g} cost and {waypoints.size} waypoints")
                 print("Applying line of sight optimization")
+
                 waypoints, cost = line_of_sight_optimization(waypoints, waypoints_g_score, eval_func, eval_resolution, constraints)
 
             else:
@@ -590,15 +589,16 @@ class RoutePlanner:
     elevation : np.ndarray
         2D array containing the elevation values. 
     x : np.ndarray 
-        1D array containing the x coordinates.
+        1D array containing the x coordinates. This array should match with the columns in the inputed elevation array.
     y : np.ndarray
-        1D array containing the y coordinates.
+        1D array containing the y coordinates. This array should match with the rows in the inputed elevation array.
 
     Attributes
     ----------
     elevation : np.ndarray
         2D array containing the elevation values. 
-        Elevation is transposed, such that x is in the row-wise direction, and y is in the column-wise direction. 
+        Elevation is transposed such that row axis (axis=0) is the x axis and the column axis (axis=1) is the y direction.
+        This is done to simplify indexing.
     x : np.ndarray 
         1D array containing the x coordinates. x must have constant spacing, and the spacing must be the same with y
     y : np.ndarray
@@ -610,7 +610,13 @@ class RoutePlanner:
                  elevation:np.ndarray, 
                  x:np.ndarray, 
                  y:np.ndarray):
-        self.elevation = elevation.T
+
+        # Make sure that the shape of the elevation map matches the x and y arrays
+        if elevation.shape == (y.size, x.size):
+            self.elevation = elevation.T
+        else:
+            raise Exception("The shape of elevation does not match with x and y.")
+
         self.x = x
         self.y = y
         self.resolution = np.abs(x[1]-x[0])

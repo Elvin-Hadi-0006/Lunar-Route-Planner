@@ -5,13 +5,10 @@ This repository is part of the final project for MMA3001 - Numerical methods and
 The RoutePlanner.find_route() method applies the A* search algorithm on the elevation map. Cost and barriers are determined by gradient, relief, and roughness. The a line-of-sight is then applied to the A* result to remove redundant waypoints. A multivariate minimizer optimization ([scipy.optimize.minimize(method=COBYQA)](https://docs.scipy.org/doc/scipy/reference/optimize.minimize-cobyqa.html#optimize-minimize-cobyqa)) can also be applied to the result, though this greatly increases computation time.
 
 # Required External Libraries
-For src/
 * [numpy](https://numpy.org/) 
 * [scipy](https://scipy.org/)
 * [rasterio](https://rasterio.readthedocs.io/en/stable/)
 * [pvl](https://pvl.readthedocs.io/en/stable/readme.html)
-
-For test/
 * [matplotlib](https://matplotlib.org/) 
 * [pillow](https://pypi.org/project/pillow/)
 

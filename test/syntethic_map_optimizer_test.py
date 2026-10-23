@@ -44,6 +44,7 @@ constraints = main.make_constraints_vector(
     roughness_max=100
 )
 
+# Elevation is transposed because PIL has a different format
 solver = main.RoutePlanner(elevation.T, x_lin, y_lin)
 
 fig, ax = plt.subplots(2,  3)
@@ -108,17 +109,14 @@ for i in range(grid_factors.size):
 
 categories = ['A', 'B', 'C']
 labels = [f"Grid factor = {n}" for n in grid_factors]
-ax[1,0].set_title("Final cost")
 ax[1,0].grouped_bar(final_costs, tick_labels=categories, labels=labels)
 ax[1,0].set_ylabel('Cost')
 
-ax[1,1].set_title("Number of waypoints")
 ax[1,1].grouped_bar(n_waypoints, tick_labels=categories)
 ax[1,1].set_ylabel('Number of waypoints')
 ax[1,1].set_yscale('log', base=10)
 ax[1,1].grid('True', axis='y',which='both')
 
-ax[1,2].set_title("Runtime")
 ax[1,2].grouped_bar(runtime, tick_labels=categories)
 ax[1,2].set_ylabel('Runtime (s)')
 ax[1,2].set_yscale('log', base=10)
@@ -126,7 +124,7 @@ ax[1,2].grid('True', axis='y',which='both')
 
 fig.legend(loc="outside lower center")
 
-fig.set_size_inches(6,6)
+fig.set_size_inches(6,4)
 results_dir = Path(__file__).resolve().parent/'results'
 fig.savefig(results_dir/'syntethic_map_optimizer_test.png', dpi=300, bbox_inches='tight')
 

@@ -34,7 +34,7 @@ class SLDEM_reader():
         The minimum latitude of the viewing window
     elevation : numpy.ndarray
         2D array containing the elevation map in meters.
-        x is in the row direction.
+        x axis is in the column-wise direction and the y axis is in the row-wise direction.
     x : numpy.ndarray
         1D array containing the coordinates in the west-east direction in meters. 
         0 at the westernmost point in the viewing window.

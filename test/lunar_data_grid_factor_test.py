@@ -47,7 +47,7 @@ constraints = main.make_constraints_vector(
     roughness_max=45
 )
 
-grid_factors = np.array([2, 4, 8, 16, 32, 64])
+grid_factors = np.array([64])
 final_costs = np.zeros(grid_factors.shape)
 runtime = np.zeros(final_costs.shape)
 
@@ -80,7 +80,6 @@ for i in range(grid_factors.size):
         print(visited_points)
         ax[0].plot(visited_points[:,0], visited_points[:,1], 's', alpha=0.2, label=f'grid_factors = {grid_factors[i]}')
 
-
 ax[0].plot(start[0], start[-1], 'ro', label='Start')
 ax[0].plot(goal[0], goal[-1], 'ko', label='Goal')
 fig.legend(loc='outside lower center', mode='expand', ncols=3)
@@ -100,6 +99,6 @@ ax[2].grid('True', axis='y',which='both')
 
 fig.set_size_inches(6,4)
 results_dir = Path(__file__).resolve().parent/'results'
-fig.savefig(results_dir/'lunar_data_grid_factor_test.png', dpi=300, bbox_inches='tight')
+#fig.savefig(results_dir/'lunar_data_grid_factor_test.png', dpi=300, bbox_inches='tight')
 
 plt.show()

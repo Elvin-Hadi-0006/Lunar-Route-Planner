@@ -91,12 +91,10 @@ fig.legend(loc='outside lower center', mode='expand', ncols=3)
 bar_labels = ['A', 'B']
 
 ax[1].bar(bar_labels, final_costs)
-ax[1].set_xlabel('Grid factor')
 ax[1].set_ylabel('Cost')
 ax[1].grid('True', axis='y',which='both')
 
 ax[2].bar(bar_labels, runtime)
-ax[2].set_xlabel('Grid factor')
 ax[2].set_ylabel('Runtime (s)')
 ax[2].set_yscale('log', base=10)
 ax[2].grid('True', axis='y',which='both')
